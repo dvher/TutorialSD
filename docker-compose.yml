@@ -1,0 +1,65 @@
+version: '3'
+
+networks:
+  hbase-network:
+    driver: bridge
+
+services:
+  zookeeper:
+    image: 'zookeeper:latest'
+    ports:
+      - '2181:2181'
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    networks:
+      - hbase-network
+    container_name: zookeeper
+  hadoop:
+    image: 'harisekhon/hadoop:latest'
+    # 8042 node manager
+    # 8088 resource manager
+    # 8188 history server
+    # 50070 namenode
+    # 50075 datanode
+    ports:
+      - '8042:8042'
+      - '8088:8088'
+      - '8188:8188'
+      - '50070:50070'
+      - '50075:50075'
+    networks:
+      - hbase-network
+    container_name: hadoop
+    env_file:
+      - ./hadoop.env
+    depends_on:
+      - zookeeper
+  hbase-master:
+    image: 'dajobe/hbase:latest'
+    ports:
+      - '16010:16010'
+    networks:
+      - hbase-network
+    container_name: hbase-master
+    environment:
+      - SERVICE_PRECONDITION='hadoop:50070 hadoop:50075 zookeeper:2181'
+    env_file:
+      - ./hbase.env
+    depends_on:
+      - zookeeper
+      - hadoop
+  hbase-region:
+    image: 'dajobe/hbase:latest'
+    ports:
+      - '16030:16030'
+    networks:
+      - hbase-network
+    container_name: hbase-region
+    environment:
+      - SERVICE_PRECONDITION='hadoop:50070 hadoop:50075 zookeeper:2181 hbase-master:16010'
+    env_file:
+      - ./hbase.env
+    depends_on:
+      - zookeeper
+      - hadoop
+      - hbase-master
